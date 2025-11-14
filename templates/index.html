@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>Cloud Drive</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- todo : add proper icon -->
+  </head>
+  <body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm sticky top-0 z-40">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+          <div class="flex items-center gap-2">
+            <svg
+              class="w-8 h-8 text-blue-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+              ></path>
+            </svg>
+            <h1 class="text-2xl font-bold text-gray-900">Cloud Drive</h1>
+          </div>
+          <div id="breadcrumb" class="text-sm text-gray-500">
+            Root
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <!-- Upload Section -->
+      <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Upload</h2>
+        
+        <div class="flex gap-4 mb-4">
+          <button id="fileUploadBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Upload Files</button>
+          <button id="folderUploadBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">Upload Folder</button>
+          <input type="file" id="fileInput" multiple class="hidden">
+          <input type="file" id="folderInput" webkitdirectory mozdirectory msdirectory odirectory directory class="hidden">
+        </div>
+
+        <!-- Drag and Drop Area -->
+        <div
+          id="dropZone"
+          class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition"
+        >
+          <svg
+            class="mx-auto h-12 w-12 text-gray-400 mb-2"
+            stroke="currentColor"
+            fill="none"
+            viewBox="0 0 48 48"
+          >
+            <path
+              d="M28 8H12a4 4 0 00-4 4v20a4 4 0 004 4h24a4 4 0 004-4V20"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            ></path>
+            <path
+              d="M32 4v12m0 0l-4-4m4 4l4-4"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            ></path>
+          </svg>
+          <p class="text-gray-600 font-medium">Drag and drop files or folders here</p>
+          <p class="text-gray-500 text-sm">or use the buttons above to upload</p>
+        </div>
+
+        <!-- File Type Info -->
+        <p class="text-xs text-gray-500 mt-3">
+          Supported: txt, pdf, doc, docx, xls, xlsx, zip, jpg, jpeg, png, gif, py, js, json (Max 100MB)
+        </p>
+      </div>
+
+      <!-- Search Section -->
+      <div class="mb-6">
+        <div class="flex gap-2">
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Search files..."
+            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            id="searchBtn"
+            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            Search
+          </button>
+          <button
+            id="clearSearchBtn"
+            class="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- Files/Folders List Section -->
+      <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+          <h2 class="text-lg font-semibold text-gray-900">Files & Folders</h2>
+        </div>
+
+        <div
+          id="filesList"
+          class="divide-y divide-gray-200"
+        >
+          <!-- Files and folders will be loaded here -->
+          <div class="px-6 py-12 text-center text-gray-500">
+            <svg
+              class="mx-auto h-12 w-12 text-gray-400 mb-2"
+              stroke="currentColor"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <path
+                d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              ></path>
+            </svg>
+            <p>No files yet. Upload some to get started!</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div
+      id="toast"
+      class="fixed bottom-4 right-4 bg-white rounded-lg shadow-lg p-4 hidden max-w-sm"
+    >
+      <div class="flex items-start gap-3">
+        <div
+          id="toastIcon"
+          class="flex-shrink-0"
+        ></div>
+        <div>
+          <p
+            id="toastMessage"
+            class="text-sm font-medium"
+          ></p>
+          <p
+            id="toastDetail"
+            class="text-xs text-gray-500 mt-1"
+          ></p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const dropZone = document.getElementById("dropZone");
+      const fileUploadBtn = document.getElementById("fileUploadBtn");
+      const folderUploadBtn = document.getElementById("folderUploadBtn");
+      const fileInput = document.getElementById("fileInput");
+      const folderInput = document.getElementById("folderInput");
+      const filesList = document.getElementById("filesList");
+      const searchInput = document.getElementById("searchInput");
+      const searchBtn = document.getElementById("searchBtn");
+      const clearSearchBtn = document.getElementById("clearSearchBtn");
+      const breadcrumb = document.getElementById("breadcrumb");
+
+      let currentPath = "";
+
+      // Format file size
+      function formatFileSize(bytes) {
+        if (bytes === 0) return "0 Bytes";
+        const k = 1024;
+        const sizes = ["Bytes", "KB", "MB", "GB"];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return (
+          Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i]
+        );
+      }
+
+      // Format date
+      function formatDate(dateString) {
+        if (!dateString) return "N/A";
+        const date = new Date(dateString);
+        return date.toLocaleDateString() + " " + date.toLocaleTimeString();
+      }
+
+      // Update breadcrumb
+      function updateBreadcrumb() {
+        if (!currentPath) {
+          breadcrumb.innerHTML = "Root";
+        } else {
+          const parts = currentPath.split("/").filter(p => p);
+          let html = '<span class="cursor-pointer hover:text-blue-600" onclick="navigateTo(\'\')">Root</span>';
+          let path = "";
+          for (let part of parts) {
+            path += path ? "/" + part : part;
+            html += ` / <span class="cursor-pointer hover:text-blue-600" onclick="navigateTo('${path}')">${part}</span>`;
+          }
+          breadcrumb.innerHTML = html;
+        }
+      }
+
+      // Navigate to folder
+      function navigateTo(path) {
+        currentPath = path;
+        updateBreadcrumb();
+        loadFiles();
+      }
+
+      // Show toast notification
+      function showToast(message, type = "success", detail = "") {
+        const toast = document.getElementById("toast");
+        const toastMessage = document.getElementById("toastMessage");
+        const toastDetail = document.getElementById("toastDetail");
+        const toastIcon = document.getElementById("toastIcon");
+
+        toastMessage.textContent = message;
+        toastDetail.textContent = detail;
+
+        if (type === "success") {
+          toast.className =
+            "fixed bottom-4 right-4 bg-green-50 rounded-lg shadow-lg p-4 max-w-sm";
+          toastIcon.innerHTML =
+            '<svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>';
+          toastMessage.className = "text-sm font-medium text-green-800";
+          toastDetail.className = "text-xs text-green-700 mt-1";
+        } else {
+          toast.className =
+            "fixed bottom-4 right-4 bg-red-50 rounded-lg shadow-lg p-4 max-w-sm";
+          toastIcon.innerHTML =
+            '<svg class="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>';
+          toastMessage.className = "text-sm font-medium text-red-800";
+          toastDetail.className = "text-xs text-red-700 mt-1";
+        }
+
+        toast.classList.remove("hidden");
+        setTimeout(() => toast.classList.add("hidden"), 4000);
+      }
+
+      // Load files and folders
+      async function loadFiles() {
+        try {
+          const response = await axios.get("/api/files");
+          if (response.data.status === "success") {
+            renderFileTree(response.data.tree);
+          }
+        } catch (error) {
+          showToast("Error loading files", "error", error.message);
+        }
+      }
+
+      // Get items from tree at current path
+      function getItemsAtPath(tree, path) {
+        if (!path) {
+          return tree;
+        }
+        
+        let current = tree;
+        const parts = path.split("/").filter(p => p);
+        for (let part of parts) {
+          if (current.folders && current.folders[part]) {
+            current = current.folders[part];
+          } else {
+            return null;
+          }
+        }
+        return current;
+      }
+
+      // Render file tree
+      function renderFileTree(tree) {
+        const current = getItemsAtPath(tree, currentPath);
+        
+        if (!current) {
+          filesList.innerHTML = `
+            <div class="px-6 py-12 text-center text-gray-500">
+              <p>Folder not found</p>
+            </div>
+          `;
+          return;
+        }
+
+        const folders = current.folders || {};
+        const files = current.files || [];
+        const items = [];
+
+        // Add folders
+        for (const [folderName, folderContent] of Object.entries(folders)) {
+          const folderPath = currentPath ? `${currentPath}/${folderName}` : folderName;
+          items.push(`
+            <div class="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition">
+              <div class="flex items-center gap-3 flex-1 cursor-pointer" onclick="navigateTo('${folderPath}')">
+                <div class="flex-shrink-0">
+                  <svg class="w-8 h-8 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2h-6l-2-2H4z"></path>
+                  </svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-gray-900 truncate">${folderName}</p>
+                  <p class="text-xs text-gray-500">Folder</p>
+                </div>
+              </div>
+              <div class="flex gap-2 ml-4">
+                <button onclick="downloadFolder('${folderPath}')" class="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200 transition">Download</button>
+              </div>
+            </div>
+          `);
+        }
+
+        // Add files
+        for (const file of files) {
+          items.push(`
+            <div class="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition">
+              <div class="flex items-center gap-3 flex-1">
+                <div class="flex-shrink-0">
+                  <svg class="w-8 h-8 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M4 4a2 2 0 012-2h6a1 1 0 01.707.293l2 2A1 1 0 0115 4h2a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"></path>
+                  </svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-gray-900 truncate">${file.name}</p>
+                  <p class="text-xs text-gray-500">${formatFileSize(file.size)} • ${formatDate(file.modified)}</p>
+                </div>
+              </div>
+              <div class="flex gap-2 ml-4">
+                <button onclick="downloadFile('${file.path}')" class="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition">Download</button>
+              </div>
+            </div>
+          `);
+        }
+
+        if (items.length === 0) {
+          filesList.innerHTML = `
+            <div class="px-6 py-12 text-center text-gray-500">
+              <svg
+                class="mx-auto h-12 w-12 text-gray-400 mb-2"
+                stroke="currentColor"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                ></path>
+              </svg>
+              <p>Empty folder</p>
+            </div>
+          `;
+        } else {
+          filesList.innerHTML = items.join("");
+        }
+      }
+
+      // Upload files
+      async function uploadFiles(fileList, folder = "") {
+        for (let file of fileList) {
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("folder", currentPath || folder);
+
+          try {
+            const response = await axios.post("/api/upload", formData, {
+              headers: {
+                "Content-Type": "multipart/form-data",
+              },
+            });
+            if (response.data.status === "success") {
+              showToast("Uploaded", "success", file.name);
+            }
+          } catch (error) {
+            showToast(
+              "Upload error",
+              "error",
+              error.response?.data?.message || error.message
+            );
+          }
+        }
+        loadFiles();
+      }
+
+      // Upload folder
+      async function uploadFolderStructure(fileList) {
+        const formData = new FormData();
+        const paths = [];
+
+        for (let file of fileList) {
+          formData.append("files[]", file);
+          paths.push(file.webkitRelativePath || file.name);
+        }
+
+        formData.append("paths[]", JSON.stringify(paths));
+        formData.append("folder", currentPath);
+
+        try {
+          const response = await axios.post("/api/upload-folder", formData, {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          });
+          if (response.data.status === "success") {
+            showToast("Success", "success", response.data.message);
+            loadFiles();
+          }
+        } catch (error) {
+          showToast(
+            "Upload error",
+            "error",
+            error.response?.data?.message || error.message
+          );
+        }
+      }
+
+      // Download file
+      async function downloadFile(filePath) {
+        try {
+          const response = await axios.get(`/api/download/${filePath}`, {
+            responseType: "blob",
+          });
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const link = document.createElement("a");
+          link.href = url;
+          link.setAttribute("download", filePath.split("/").pop());
+          document.body.appendChild(link);
+          link.click();
+          link.parentElement.removeChild(link);
+          showToast("Downloaded", "success", filePath.split("/").pop());
+        } catch (error) {
+          showToast("Download error", "error", error.message);
+        }
+      }
+
+      // Download folder
+      async function downloadFolder(folderPath) {
+        try {
+          const response = await axios.post("/api/download-folder", {
+            folder_path: folderPath
+          }, {
+            responseType: "blob",
+          });
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const link = document.createElement("a");
+          link.href = url;
+          link.setAttribute("download", `${folderPath.split("/").pop()}.zip`);
+          document.body.appendChild(link);
+          link.click();
+          link.parentElement.removeChild(link);
+          showToast("Downloaded", "success", `${folderPath.split("/").pop()}.zip`);
+        } catch (error) {
+          showToast("Download error", "error", error.message);
+        }
+      }
+
+      // Search files
+      async function searchFiles() {
+        const query = searchInput.value.trim();
+        if (!query) {
+          showToast("Error", "error", "Enter a search query");
+          return;
+        }
+
+        try {
+          const response = await axios.get(
+            `/api/search?q=${encodeURIComponent(query)}`
+          );
+          if (response.data.status === "success") {
+            const files = response.data.files;
+            
+            let html = '';
+            for (const file of files) {
+              html += `
+                <div class="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition">
+                  <div class="flex items-center gap-3 flex-1">
+                    <div class="flex-shrink-0">
+                      <svg class="w-8 h-8 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M4 4a2 2 0 012-2h6a1 1 0 01.707.293l2 2A1 1 0 0115 4h2a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"></path>
+                      </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium text-gray-900 truncate">${file.name}</p>
+                      <p class="text-xs text-gray-500">${formatFileSize(file.size)}</p>
+                    </div>
+                  </div>
+                  <div class="flex gap-2 ml-4">
+                    <button onclick="downloadFile('${file.path}')" class="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition">Download</button>
+                  </div>
+                </div>
+              `;
+            }
+            
+            if (files.length === 0) {
+              html = `
+                <div class="px-6 py-12 text-center text-gray-500">
+                  <p>No files found matching "${query}"</p>
+                </div>
+              `;
+            }
+            
+            filesList.innerHTML = html;
+            showToast("Search complete", "success", `Found ${files.length} file(s)`);
+          }
+        } catch (error) {
+          showToast("Search error", "error", error.message);
+        }
+      }
+
+      // Event listeners
+      fileUploadBtn.addEventListener("click", () => fileInput.click());
+      folderUploadBtn.addEventListener("click", () => folderInput.click());
+
+      fileInput.addEventListener("change", (e) => {
+        uploadFiles(Array.from(e.target.files));
+        fileInput.value = "";
+      });
+
+      folderInput.addEventListener("change", (e) => {
+        uploadFolderStructure(Array.from(e.target.files));
+        folderInput.value = "";
+      });
+
+      dropZone.addEventListener("click", () => fileInput.click());
+
+      dropZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropZone.classList.add("border-blue-500", "bg-blue-50");
+      });
+
+      dropZone.addEventListener("dragleave", () => {
+        dropZone.classList.remove("border-blue-500", "bg-blue-50");
+      });
+
+      dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("border-blue-500", "bg-blue-50");
+
+        const files = Array.from(e.dataTransfer.files);
+        uploadFiles(files);
+        // todo : currently only files are uploaded, folder upload via drag-drop is failing
+      });
+
+      // Search event listeners
+      searchBtn.addEventListener("click", searchFiles);
+      clearSearchBtn.addEventListener("click", () => {
+        searchInput.value = "";
+        currentPath = "";
+        updateBreadcrumb();
+        loadFiles();
+      });
+
+      searchInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") searchFiles();
+      });
+
+      // Initial load
+      updateBreadcrumb();
+      loadFiles();
+    </script>
+  </body>
+</html>
