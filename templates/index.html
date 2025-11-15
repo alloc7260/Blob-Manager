@@ -32,8 +32,19 @@
             </svg>
             <h1 class="text-2xl font-bold text-gray-900">Cloud Drive</h1>
           </div>
-          <div id="breadcrumb" class="text-sm text-gray-500">
-            Root
+          <div class="flex items-center gap-4">
+            <div id="breadcrumb" class="text-sm text-gray-500">
+              Root
+            </div>
+            <div class="flex items-center gap-3">
+              <span id="usernameDisplay" class="text-sm font-medium text-gray-700"></span>
+              <button
+                id="logoutBtn"
+                class="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -171,8 +182,35 @@
       const searchBtn = document.getElementById("searchBtn");
       const clearSearchBtn = document.getElementById("clearSearchBtn");
       const breadcrumb = document.getElementById("breadcrumb");
+      const logoutBtn = document.getElementById("logoutBtn");
+      const usernameDisplay = document.getElementById("usernameDisplay");
 
       let currentPath = "";
+
+      // Fetch current user info
+      async function fetchUserInfo() {
+        try {
+          const response = await axios.get("/api/me");
+          usernameDisplay.textContent = response.data.username;
+        } catch (error) {
+          // If unauthorized, redirect to login
+          window.location.href = "/login";
+        }
+      }
+
+      // Logout handler
+      logoutBtn.addEventListener("click", async () => {
+        try {
+          await axios.post("/api/logout");
+          window.location.href = "/login";
+        } catch (error) {
+          console.error("Logout error:", error);
+          window.location.href = "/login";
+        }
+      });
+
+      // Initialize
+      fetchUserInfo();
 
       // Format file size
       function formatFileSize(bytes) {
