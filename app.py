@@ -1,18 +1,25 @@
 """
-Flask webapp for private cloud drive using Azure Blob Storage
+FastAPI webapp for private cloud drive using Azure Blob Storage
 """
 
 import os, io, zipfile, json
-from flask import Flask, render_template, request, jsonify, send_file
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Request
+from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from azure.storage.blob import BlobServiceClient
 from werkzeug.utils import secure_filename
 from urllib.parse import urlparse
+from typing import List, Optional
+from pydantic import BaseModel
 
 from dotenv import load_dotenv
 load_dotenv()
 
-app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100MB max upload
+app = FastAPI()
+
+# Setup templates
+templates = Jinja2Templates(directory="templates")
 
 # Azure Blob Storage configuration
 BLOB_SAS_URL = os.getenv("BLOB_SAS_URL")
@@ -24,33 +31,9 @@ CREDENTIAL = parsed_url.query
 blob_service_client = BlobServiceClient(account_url=ACCOUNT_URL, credential=CREDENTIAL)
 container_client = blob_service_client.get_container_client(CONTAINER_NAME)
 
-# Allowed file extensions
-# ALLOWED_EXTENSIONS = {
-#     "txt",
-#     "pdf",
-#     "doc",
-#     "docx",
-#     "xls",
-#     "xlsx",
-#     "zip",
-#     "jpg",
-#     "jpeg",
-#     "png",
-#     "gif",
-#     "py",
-#     "js",
-#     "json",
-#     "csv",
-#     "md",
-#     "ppt",
-#     "pptx",
-#     "mp4",
-# }
-
-
-# def allowed_file(filename):
-#     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
-
+# Pydantic models
+class DownloadFolderRequest(BaseModel):
+    folder_path: str
 
 def build_folder_tree(blobs):
     """Build a hierarchical folder structure from blob paths"""
@@ -88,39 +71,33 @@ def build_folder_tree(blobs):
     return tree
 
 
-@app.route("/")
-def index():
+@app.get("/")
+async def index(request: Request):
     """Main page - file listing"""
-    return render_template("index.html")
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
-@app.route("/api/files", methods=["GET"])
-def list_files():
+@app.get("/api/files")
+async def list_files():
     """List all files organized in folder structure"""
     try:
         blobs = container_client.list_blobs()
         tree = build_folder_tree(blobs)
-        return jsonify({"status": "success", "tree": tree})
+        return {"status": "success", "tree": tree}
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.route("/api/upload", methods=["POST"])
-def upload_file():
+@app.post("/api/upload")
+async def upload_file(
+    file: UploadFile = File(...),
+    folder: Optional[str] = Form("")
+):
     """Upload file to blob storage with folder structure"""
     try:
         # todo : if uploaded two different files with same name in same folder, handle that using guid and save filename in metadata
-        if "file" not in request.files:
-            return jsonify({"status": "error", "message": "No file provided"}), 400
-
-        file = request.files["file"]
-        folder = request.form.get("folder", "")
-
         if not file.filename:
-            return jsonify({"status": "error", "message": "No file selected"}), 400
-
-        # if not allowed_file(file.filename):
-        #     return jsonify({"status": "error", "message": "File type not allowed"}), 400
+            raise HTTPException(status_code=400, detail="No file selected")
 
         filename = secure_filename(file.filename or "")
         # Build path with folder
@@ -128,84 +105,82 @@ def upload_file():
         blob_client = container_client.get_blob_client(blob_path)
 
         # Upload file
-        file_content = file.read()
+        file_content = await file.read()
         blob_client.upload_blob(file_content, overwrite=True)
 
-        return jsonify(
-            {
-                "status": "success",
-                "message": f"File {filename} uploaded successfully",
-                "filename": filename,
-                "path": blob_path,
-            }
-        )
+        return {
+            "status": "success",
+            "message": f"File {filename} uploaded successfully",
+            "filename": filename,
+            "path": blob_path,
+        }
+    except HTTPException:
+        raise
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.route("/api/upload-folder", methods=["POST"])
-def upload_folder():
+@app.post("/api/upload-folder")
+async def upload_folder(
+    files: List[UploadFile] = File(...),
+    paths: str = Form(...),
+    folder: Optional[str] = Form("")
+):
     """Upload entire folder structure"""
     try:
-        files = request.files.getlist("files[]")
-        paths = json.loads(request.form.get("paths[]"))
-        folder_prefix = request.form.get("folder", "")
-
         if not files:
-            return jsonify({"status": "error", "message": "No files provided"}), 400
+            raise HTTPException(status_code=400, detail="No files provided")
 
+        paths_list = json.loads(paths)
         uploaded = []
-        for file, path in zip(files, paths):
+        
+        for file, path in zip(files, paths_list):
             if not file.filename:
                 continue
 
-            # if not allowed_file(file.filename):
-            #     continue
-
             # Construct full path
-            full_path = f"{folder_prefix}/{path}" if folder_prefix else path
+            full_path = f"{folder}/{path}" if folder else path
             blob_client = container_client.get_blob_client(full_path)
-            file_content = file.read()
+            file_content = await file.read()
             blob_client.upload_blob(file_content, overwrite=True)
             uploaded.append(full_path)
 
-        return jsonify(
-            {
-                "status": "success",
-                "message": f"Uploaded {len(uploaded)} files",
-                "uploaded": uploaded,
-            }
-        )
+        return {
+            "status": "success",
+            "message": f"Uploaded {len(uploaded)} files",
+            "uploaded": uploaded,
+        }
+    except HTTPException:
+        raise
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.route("/api/download/<path:blob_path>", methods=["GET"])
-def download_file(blob_path):
+@app.get("/api/download/{blob_path:path}")
+async def download_file(blob_path: str):
     """Download file from blob storage"""
     try:
         blob_client = container_client.get_blob_client(blob_path)
         download_stream = blob_client.download_blob()
         filename = blob_path.split("/")[-1]
 
-        return send_file(
+        return StreamingResponse(
             io.BytesIO(download_stream.readall()),
-            # as_attachment=True,
-            download_name=filename,
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
         )
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.route("/api/download-folder", methods=["POST"])
-def download_folder():
+@app.post("/api/download-folder")
+async def download_folder(request: DownloadFolderRequest):
     """Download entire folder as ZIP"""
     try:
-        data = request.get_json() or {}
-        folder_path = data.get("folder_path", "")
+        folder_path = request.folder_path
 
         if not folder_path:
-            return jsonify({"status": "error", "message": "No folder specified"}), 400
+            raise HTTPException(status_code=400, detail="No folder specified")
 
         blobs = container_client.list_blobs(name_starts_with=folder_path)
 
@@ -222,55 +197,54 @@ def download_folder():
         zip_buffer.seek(0)
         folder_name = folder_path.split("/")[-1]
 
-        return send_file(
+        return StreamingResponse(
             zip_buffer,
-            mimetype="application/zip",
-            # as_attachment=True,
-            download_name=f"{folder_name}.zip",
+            media_type="application/zip",
+            headers={"Content-Disposition": f"attachment; filename={folder_name}.zip"}
         )
+    except HTTPException:
+        raise
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.route("/api/file-info/<path:blob_path>", methods=["GET"])
-def get_file_info(blob_path):
+@app.get("/api/file-info/{blob_path:path}")
+async def get_file_info(blob_path: str):
     """Get detailed info about a file"""
     try:
         blob_client = container_client.get_blob_client(blob_path)
         properties = blob_client.get_blob_properties()
 
-        return jsonify(
-            {
-                "status": "success",
-                "info": {
-                    "name": blob_path.split("/")[-1],
-                    "path": blob_path,
-                    "size": properties.size,
-                    "content_type": properties.content_settings.content_type,
-                    "created": (
-                        properties.creation_time.isoformat()
-                        if properties.creation_time
-                        else None
-                    ),
-                    "modified": (
-                        properties.last_modified.isoformat()
-                        if properties.last_modified
-                        else None
-                    ),
-                },
-            }
-        )
+        return {
+            "status": "success",
+            "info": {
+                "name": blob_path.split("/")[-1],
+                "path": blob_path,
+                "size": properties.size,
+                "content_type": properties.content_settings.content_type,
+                "created": (
+                    properties.creation_time.isoformat()
+                    if properties.creation_time
+                    else None
+                ),
+                "modified": (
+                    properties.last_modified.isoformat()
+                    if properties.last_modified
+                    else None
+                ),
+            },
+        }
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.route("/api/search", methods=["GET"])
-def search_files():
+@app.get("/api/search")
+async def search_files(q: str):
     """Search files by name"""
     try:
-        query = request.args.get("q", "").lower()
+        query = q.lower()
         if not query:
-            return jsonify({"status": "error", "message": "Search query required"}), 400
+            raise HTTPException(status_code=400, detail="Search query required")
 
         blobs = container_client.list_blobs()
         files = []
@@ -289,10 +263,13 @@ def search_files():
                     }
                 )
 
-        return jsonify({"status": "success", "files": files})
+        return {"status": "success", "files": files}
+    except HTTPException:
+        raise
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
-    app.run()
+    import uvicorn
+    uvicorn.run(app)
