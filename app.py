@@ -5,7 +5,6 @@ FastAPI webapp for private cloud drive using Azure Blob Storage
 import os, io, zipfile, json
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from azure.storage.blob import BlobServiceClient
 from werkzeug.utils import secure_filename
@@ -69,6 +68,12 @@ def build_folder_tree(blobs):
                 current = current["folders"][part]
 
     return tree
+
+
+@app.get("/cloud-storage.png")
+async def favicon():
+    favicon_path = os.path.join("static", "cloud-storage.png")
+    return FileResponse(favicon_path)
 
 
 @app.get("/")
