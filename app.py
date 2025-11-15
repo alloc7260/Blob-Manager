@@ -4,13 +4,12 @@ FastAPI webapp for private cloud drive using Azure Blob Storage
 
 import os, io, zipfile, json
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Request
-from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from azure.storage.blob import BlobServiceClient
 from werkzeug.utils import secure_filename
 from urllib.parse import urlparse
 from typing import List, Optional
-from pydantic import BaseModel
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -23,52 +22,8 @@ templates = Jinja2Templates(directory="templates")
 # Azure Blob Storage configuration
 BLOB_SAS_URL = os.getenv("BLOB_SAS_URL")
 parsed_url = urlparse(BLOB_SAS_URL)
-ACCOUNT_URL = f"{parsed_url.scheme}://{parsed_url.netloc}/"
-CONTAINER_NAME = parsed_url.path.lstrip("/")
-CREDENTIAL = parsed_url.query
-
-blob_service_client = BlobServiceClient(account_url=ACCOUNT_URL, credential=CREDENTIAL)
-container_client = blob_service_client.get_container_client(CONTAINER_NAME)
-
-# Pydantic models
-class DownloadFolderRequest(BaseModel):
-    folder_path: str
-
-def build_folder_tree(blobs):
-    """Build a hierarchical folder structure from blob paths"""
-    tree = {}
-
-    for blob in blobs:
-        parts = blob.name.split("/")
-        current = tree
-
-        for i, part in enumerate(parts):
-            if i == len(parts) - 1:
-                # It's a file
-                if "files" not in current:
-                    current["files"] = []
-                current["files"].append(
-                    {
-                        "name": part,
-                        "path": blob.name,
-                        "size": blob.size,
-                        "modified": (
-                            blob.last_modified.isoformat()
-                            if blob.last_modified
-                            else None
-                        ),
-                    }
-                )
-            else:
-                # It's a folder
-                if "folders" not in current:
-                    current["folders"] = {}
-                if part not in current["folders"]:
-                    current["folders"][part] = {}
-                current = current["folders"][part]
-
-    return tree
-
+blob_service_client = BlobServiceClient(account_url=f"{parsed_url.scheme}://{parsed_url.netloc}/", credential=parsed_url.query)
+container_client = blob_service_client.get_container_client(parsed_url.path.lstrip("/"))
 
 @app.get("/cloud-storage.png")
 async def favicon():
@@ -87,7 +42,36 @@ async def list_files():
     """List all files organized in folder structure"""
     try:
         blobs = container_client.list_blobs()
-        tree = build_folder_tree(blobs)
+        tree = {}
+
+        for blob in blobs:
+            parts = blob.name.split("/")
+            current = tree
+
+            for i, part in enumerate(parts):
+                if i == len(parts) - 1:
+                    # It's a file
+                    if "files" not in current:
+                        current["files"] = []
+                    current["files"].append(
+                        {
+                            "name": part,
+                            "path": blob.name,
+                            "size": blob.size,
+                            "modified": (
+                                blob.last_modified.isoformat()
+                                if blob.last_modified
+                                else None
+                            ),
+                        }
+                    )
+                else:
+                    # It's a folder
+                    if "folders" not in current:
+                        current["folders"] = {}
+                    if part not in current["folders"]:
+                        current["folders"][part] = {}
+                    current = current["folders"][part]
         return {"status": "success", "tree": tree}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -96,7 +80,6 @@ async def list_files():
 @app.post("/api/upload")
 async def upload_file(
     file: UploadFile = File(...),
-    folder: Optional[str] = Form("")
 ):
     """Upload file to blob storage with folder structure"""
     try:
@@ -106,7 +89,7 @@ async def upload_file(
 
         filename = secure_filename(file.filename or "")
         # Build path with folder
-        blob_path = f"{folder}/{filename}" if folder else filename
+        blob_path = filename
         blob_client = container_client.get_blob_client(blob_path)
 
         # Upload file
@@ -179,11 +162,9 @@ async def download_file(blob_path: str):
 
 
 @app.post("/api/download-folder")
-async def download_folder(request: DownloadFolderRequest):
+async def download_folder(folder_path: str = Form(...)):
     """Download entire folder as ZIP"""
     try:
-        folder_path = request.folder_path
-
         if not folder_path:
             raise HTTPException(status_code=400, detail="No folder specified")
 
@@ -209,36 +190,6 @@ async def download_folder(request: DownloadFolderRequest):
         )
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/api/file-info/{blob_path:path}")
-async def get_file_info(blob_path: str):
-    """Get detailed info about a file"""
-    try:
-        blob_client = container_client.get_blob_client(blob_path)
-        properties = blob_client.get_blob_properties()
-
-        return {
-            "status": "success",
-            "info": {
-                "name": blob_path.split("/")[-1],
-                "path": blob_path,
-                "size": properties.size,
-                "content_type": properties.content_settings.content_type,
-                "created": (
-                    properties.creation_time.isoformat()
-                    if properties.creation_time
-                    else None
-                ),
-                "modified": (
-                    properties.last_modified.isoformat()
-                    if properties.last_modified
-                    else None
-                ),
-            },
-        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

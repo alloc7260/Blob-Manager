@@ -394,11 +394,11 @@
         const paths = [];
 
         for (let file of fileList) {
-          formData.append("files[]", file);
+          formData.append("files", file);
           paths.push(file.webkitRelativePath || file.name);
         }
 
-        formData.append("paths[]", JSON.stringify(paths));
+        formData.append("paths", JSON.stringify(paths));
         formData.append("folder", currentPath);
 
         try {
@@ -415,7 +415,7 @@
           showToast(
             "Upload error",
             "error",
-            error.response?.data?.message || error.message
+            error.response?.data?.detail || error.message
           );
         }
       }
@@ -442,11 +442,18 @@
       // Download folder
       async function downloadFolder(folderPath) {
         try {
-          const response = await axios.post("/api/download-folder", {
-            folder_path: folderPath
-          }, {
-            responseType: "blob",
-          });
+          const formData = new FormData();
+          formData.append("folder_path", folderPath);
+          
+          const response = await axios.post(`/api/download-folder`, 
+            formData,
+            { 
+              responseType: "blob",
+              headers: {
+                "Content-Type": "multipart/form-data"
+              }
+            }
+          );
           const url = window.URL.createObjectURL(new Blob([response.data]));
           const link = document.createElement("a");
           link.href = url;
@@ -456,7 +463,7 @@
           link.parentElement.removeChild(link);
           showToast("Downloaded", "success", `${folderPath.split("/").pop()}.zip`);
         } catch (error) {
-          showToast("Download error", "error", error.message);
+          showToast("Download error", "error", error.response?.data?.detail || error.message);
         }
       }
 
@@ -538,14 +545,82 @@
         dropZone.classList.remove("border-blue-500", "bg-blue-50");
       });
 
-      dropZone.addEventListener("drop", (e) => {
+      dropZone.addEventListener("drop", async (e) => {
         e.preventDefault();
         dropZone.classList.remove("border-blue-500", "bg-blue-50");
 
-        const files = Array.from(e.dataTransfer.files);
-        uploadFiles(files);
-        // todo : currently only files are uploaded, folder upload via drag-drop is failing
+        const items = e.dataTransfer.items;
+        if (items) {
+          const files = [];
+          const paths = [];
+          
+          // Process all dropped items
+          for (let i = 0; i < items.length; i++) {
+            const item = items[i].webkitGetAsEntry();
+            if (item) {
+              await traverseFileTree(item, "", files, paths);
+            }
+          }
+          
+          // If we have paths (folder structure), use uploadFolderStructure
+          if (paths.length > 0) {
+            const formData = new FormData();
+            for (let i = 0; i < files.length; i++) {
+              formData.append("files", files[i]);
+            }
+            formData.append("paths", JSON.stringify(paths));
+            formData.append("folder", currentPath);
+
+            try {
+              const response = await axios.post("/api/upload-folder", formData, {
+                headers: {
+                  "Content-Type": "multipart/form-data",
+                },
+              });
+              if (response.data.status === "success") {
+                showToast("Success", "success", response.data.message);
+                loadFiles();
+              }
+            } catch (error) {
+              showToast(
+                "Upload error",
+                "error",
+                error.response?.data?.detail || error.message
+              );
+            }
+          } else {
+            // Fallback to regular file upload
+            uploadFiles(files);
+          }
+        } else {
+          // Fallback for browsers that don't support DataTransferItemList
+          const files = Array.from(e.dataTransfer.files);
+          uploadFiles(files);
+        }
       });
+
+      // Helper function to traverse file tree recursively
+      async function traverseFileTree(item, path, files, paths) {
+        if (item.isFile) {
+          return new Promise((resolve) => {
+            item.file((file) => {
+              files.push(file);
+              paths.push(path + file.name);
+              resolve();
+            });
+          });
+        } else if (item.isDirectory) {
+          const dirReader = item.createReader();
+          return new Promise((resolve) => {
+            dirReader.readEntries(async (entries) => {
+              for (let entry of entries) {
+                await traverseFileTree(entry, path + item.name + "/", files, paths);
+              }
+              resolve();
+            });
+          });
+        }
+      }
 
       // Search event listeners
       searchBtn.addEventListener("click", searchFiles);
