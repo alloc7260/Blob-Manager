@@ -9,6 +9,7 @@ All requested features have been successfully implemented for your Blob Manager 
 ## Features Implemented
 
 ### 1. TOTP-Based Signin System ✓
+
 - **Login Page**: `/login`
 - **Features**:
   - Username input field
@@ -18,6 +19,7 @@ All requested features have been successfully implemented for your Blob Manager 
   - Automatic redirect to main app after successful login
 
 ### 2. TOTP-Based Signup System ✓
+
 - **Signup Page**: `/signup`
 - **Features**:
   - Unique username validation (enforced at database level)
@@ -30,6 +32,7 @@ All requested features have been successfully implemented for your Blob Manager 
   - Automatic login after successful verification
 
 ### 3. MongoDB Integration ✓
+
 - **Database**: `blob-manager`
 - **Collection**: `users`
 - **Connection**: Uses `MONGO_URI` from environment variables
@@ -44,12 +47,14 @@ All requested features have been successfully implemented for your Blob Manager 
   ```
 
 ### 4. Authorization Model ✓
+
 - **User Isolation**: Each user can only access their own blob SAS URL
 - **One SAS URL per user**: Stored in MongoDB, associated with username
 - **Protected Routes**: All blob storage endpoints require authentication
 - **Middleware**: `get_current_user` dependency validates JWT on every request
 
 ### 5. JWT Token Authentication ✓
+
 - **Token Expiry**: 1 hour (configurable)
 - **Storage**: httponly secure cookies
 - **Cookie Settings**:
@@ -65,35 +70,36 @@ All requested features have been successfully implemented for your Blob Manager 
 ### New Files Created:
 
 1. **`utils/database.py`**
+
    - MongoDB connection and initialization
    - UserDB class with CRUD operations
    - Unique username index creation
-
 2. **`utils/auth.py`**
+
    - TOTPAuth class (secret generation, QR code, verification)
    - JWTAuth class (token creation and validation)
-
 3. **`templates/login.html`**
+
    - Modern, responsive login interface
    - TOTP code input with auto-formatting
    - Error handling and user feedback
-
 4. **`templates/signup.html`**
+
    - Two-step signup process
    - QR code display for TOTP setup
    - Username and blob SAS URL inputs
    - TOTP verification before account activation
-
 5. **`.env.example`**
+
    - Template for environment variables
    - MONGO_URI and JWT_SECRET_KEY
-
 6. **`README.md`**
+
    - Comprehensive documentation
    - Feature list, setup instructions
    - API endpoints, security features
-
 7. **`SETUP.md`**
+
    - Quick setup guide
    - Step-by-step instructions
    - Troubleshooting tips
@@ -101,9 +107,10 @@ All requested features have been successfully implemented for your Blob Manager 
 ### Modified Files:
 
 1. **`requirements.txt`**
-   - Added: pyotp, qrcode, pymongo, python-jose, passlib
 
+   - Added: pyotp, qrcode, pymongo, python-jose, passlib
 2. **`app.py`**
+
    - Removed global blob storage client
    - Added authentication imports
    - Added `get_current_user` dependency
@@ -119,8 +126,8 @@ All requested features have been successfully implemented for your Blob Manager 
      - `GET /signup`
    - Protected existing routes with `Depends(get_current_user)`
    - Modified all blob operations to use user's own SAS URL
-
 3. **`templates/index.html`**
+
    - Added logout button in navigation
    - Added username display
    - Added `fetchUserInfo()` function
@@ -132,6 +139,7 @@ All requested features have been successfully implemented for your Blob Manager 
 ## API Endpoints
 
 ### Authentication Endpoints (Public)
+
 ```
 GET  /login                  - Display login page
 GET  /signup                 - Display signup page
@@ -142,6 +150,7 @@ POST /api/logout             - Logout and clear session
 ```
 
 ### Protected Endpoints (Require Authentication)
+
 ```
 GET  /                       - Main file browser
 GET  /api/me                 - Get current user info
@@ -171,6 +180,7 @@ GET  /api/search             - Search files
 ## How It Works
 
 ### Signup Flow:
+
 1. User enters username and Azure Blob SAS URL
 2. System generates TOTP secret
 3. QR code is created and displayed
@@ -182,6 +192,7 @@ GET  /api/search             - Search files
 9. User redirected to main app
 
 ### Login Flow:
+
 1. User enters username
 2. User enters current TOTP code from app
 3. System retrieves user from MongoDB
@@ -190,6 +201,7 @@ GET  /api/search             - Search files
 6. User redirected to main app
 
 ### Request Authorization:
+
 1. Client makes request with JWT cookie
 2. Server extracts and validates JWT token
 3. Server retrieves user data from MongoDB
@@ -203,58 +215,43 @@ GET  /api/search             - Search files
 ## Testing the Implementation
 
 1. **Install dependencies**:
+
    ```bash
    pip install -r requirements.txt
    ```
-
 2. **Set up environment**:
+
    ```env
    MONGO_URI=mongodb://localhost:27017/
    JWT_SECRET_KEY=your-secret-key-here
    ```
-
 3. **Start MongoDB** (if local)
-
 4. **Run the app**:
+
    ```bash
    python app.py
    ```
-
 5. **Test signup**:
+
    - Go to http://localhost:8000/signup
    - Enter username and SAS URL
    - Scan QR code
    - Verify with TOTP code
-
 6. **Test login**:
+
    - Go to http://localhost:8000/login
    - Enter username and TOTP code
    - Should redirect to file browser
-
 7. **Test file operations**:
+
    - Upload a file
-   - Create folders
    - Download files
    - All operations use your blob storage
-
 8. **Test logout**:
+
    - Click logout button
    - Should redirect to login
    - Cookie should be cleared
-
----
-
-## Next Steps / Optional Enhancements
-
-- [ ] Add password reset flow
-- [ ] Implement rate limiting on auth endpoints
-- [ ] Add email verification
-- [ ] Support for backup TOTP codes
-- [ ] Admin panel for user management
-- [ ] Audit logging for security events
-- [ ] File sharing between users
-- [ ] Role-based access control
-- [ ] Mobile app with TOTP support
 
 ---
 
