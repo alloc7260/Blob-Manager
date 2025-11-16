@@ -167,10 +167,7 @@ async def logout(response: Response):
 @app.get("/api/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
     """Get current user info"""
-    return {
-        "username": current_user["username"],
-        "blob_sas_url": current_user["blob_sas_url"]
-    }
+    return {"username": current_user["username"]}
 
 
 @app.get("/api/files")
