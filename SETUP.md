@@ -3,6 +3,7 @@
 ## Step-by-Step Setup
 
 ### 1. Install Dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
@@ -10,31 +11,35 @@ pip install -r requirements.txt
 ### 2. Setup MongoDB
 
 **Option A: Local MongoDB**
+
 - Install MongoDB Community Edition
 - Start MongoDB service:
   ```bash
   # Windows
   net start MongoDB
-  
+
   # Linux/Mac
   sudo systemctl start mongod
   ```
 
 **Option B: MongoDB Atlas (Cloud)**
+
 - Create free account at https://www.mongodb.com/cloud/atlas
 - Create a cluster
-- Get connection string (replace <password> with your password)
+- Get connection string (replace `<password>` with your password)
 - Example: `mongodb+srv://username:<password>@cluster.mongodb.net/`
 
 ### 3. Configure Environment Variables
 
 Create `.env` file:
+
 ```env
 MONGO_URI=mongodb://localhost:27017/
 JWT_SECRET_KEY=your-secret-key-change-this-in-production
 ```
 
 **Generate a secure JWT secret:**
+
 ```python
 # Run this in Python to generate a random secret
 import secrets
@@ -53,6 +58,7 @@ print(secrets.token_urlsafe(32))
 8. Copy the "Blob SAS URL"
 
 Example SAS URL format:
+
 ```
 https://youraccount.blob.core.windows.net/containername?sp=racwl&st=...
 ```
@@ -84,41 +90,51 @@ uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ### 7. Test the System
 
 1. You should be logged in and see the file browser
-2. Try uploading a file
-3. Try creating folders
-4. Logout and login again with TOTP code
+2. Try uploading a file or folder, then try downloading it
+3. Logout and login again with TOTP code
 
 ## Troubleshooting
 
 ### MongoDB Connection Error
+
 ```
 pymongo.errors.ServerSelectionTimeoutError
 ```
+
 **Solution**: Check if MongoDB is running and MONGO_URI is correct
 
 ### Invalid TOTP Code
+
 ```
 "Invalid TOTP code"
 ```
-**Solution**: 
+
+**Solution**:
+
 - Ensure device time is synchronized
 - Check if you're using the latest code (refreshes every 30 seconds)
 - Verify you scanned the correct QR code
 
 ### Blob Storage Access Error
+
 ```
 azure.core.exceptions.HttpResponseError
 ```
-**Solution**: 
+
+**Solution**:
+
 - Check if SAS URL is valid and not expired
 - Verify SAS URL has read/write/list permissions
 - Ensure container exists in Azure
 
 ### JWT Token Expired
+
 ```
 "Invalid token" or redirect to login
 ```
-**Solution**: 
+
+**Solution**:
+
 - Login again (tokens expire after 1 hour)
 - This is normal security behavior
 
@@ -148,11 +164,13 @@ azure.core.exceptions.HttpResponseError
 ## Development Tips
 
 **Auto-reload on code changes:**
+
 ```bash
 uvicorn app:app --reload
 ```
 
 **View MongoDB data:**
+
 ```bash
 # Using mongosh
 mongosh
@@ -161,6 +179,7 @@ db.users.find().pretty()
 ```
 
 **Clear all users (reset):**
+
 ```bash
 mongosh
 use blob-manager
@@ -168,19 +187,10 @@ db.users.deleteMany({})
 ```
 
 **Test TOTP locally:**
+
 ```python
 import pyotp
 secret = "YOUR_SECRET_HERE"
 totp = pyotp.TOTP(secret)
 print(totp.now())  # Current valid code
 ```
-
-## Next Steps
-
-After setup, you can:
-- Customize the UI in templates/
-- Add more features (sharing, permissions, etc.)
-- Implement file preview
-- Add file versioning
-- Set up automated backups
-- Deploy to cloud (Azure App Service, AWS, etc.)

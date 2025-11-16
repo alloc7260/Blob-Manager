@@ -21,26 +21,26 @@ A FastAPI-based web application for managing Azure Blob Storage with secure TOTP
 ## Installation
 
 1. **Clone the repository**
+
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/alloc7260/Blob-Manager.git
    cd Blob-Manager
    ```
-
 2. **Install dependencies**
+
    ```bash
    pip install -r requirements.txt
    ```
-
 3. **Configure environment variables**
-   
+
    Create a `.env` file in the root directory:
+
    ```env
    MONGO_URI=mongodb://localhost:27017/
    JWT_SECRET_KEY=your-secret-key-change-this-in-production
    ```
-
 4. **Set up MongoDB**
-   
+
    - Install MongoDB locally or use MongoDB Atlas
    - Update `MONGO_URI` in `.env` with your connection string
    - Database name: `blob-manager`
@@ -49,26 +49,29 @@ A FastAPI-based web application for managing Azure Blob Storage with secure TOTP
 ## Usage
 
 1. **Start the application**
+
    ```bash
    python app.py
    ```
+
    Or with uvicorn:
+
    ```bash
    uvicorn app:app --reload
    ```
-
 2. **Access the application**
+
    - Open browser to `http://localhost:8000`
    - You'll be redirected to the login page
-
 3. **Sign up for a new account**
+
    - Navigate to `/signup`
    - Enter a unique username
    - Paste your Azure Blob Storage SAS URL
    - Scan the QR code with your authenticator app
    - Enter the 6-digit code to verify and login
-
 4. **Login**
+
    - Navigate to `/login`
    - Enter your username
    - Enter the current TOTP code from your authenticator app
@@ -76,6 +79,7 @@ A FastAPI-based web application for managing Azure Blob Storage with secure TOTP
 ## Authentication Flow
 
 ### Signup Process
+
 1. User enters username and Azure Blob SAS URL
 2. System generates TOTP secret and QR code
 3. User scans QR code with authenticator app
@@ -83,6 +87,7 @@ A FastAPI-based web application for managing Azure Blob Storage with secure TOTP
 5. JWT token is issued and stored in httponly cookie
 
 ### Login Process
+
 1. User enters username
 2. User enters current TOTP code from authenticator app
 3. System verifies TOTP code
@@ -101,6 +106,7 @@ A FastAPI-based web application for managing Azure Blob Storage with secure TOTP
 ## API Endpoints
 
 ### Authentication
+
 - `GET /login` - Login page
 - `GET /signup` - Signup page
 - `POST /api/signup` - Create new user account
@@ -110,6 +116,7 @@ A FastAPI-based web application for managing Azure Blob Storage with secure TOTP
 - `GET /api/me` - Get current user info
 
 ### File Management (Authenticated)
+
 - `GET /` - Main file browser interface
 - `GET /api/files` - List all files and folders
 - `POST /api/upload` - Upload a file
@@ -125,7 +132,6 @@ Blob-Manager/
 ├── app.py                 # Main FastAPI application
 ├── requirements.txt       # Python dependencies
 ├── .env                   # Environment variables (create this)
-├── .env.example          # Example environment variables
 ├── utils/
 │   ├── auth.py           # TOTP and JWT authentication utilities
 │   └── database.py       # MongoDB connection and user management
@@ -140,6 +146,7 @@ Blob-Manager/
 ## MongoDB Schema
 
 ### Users Collection
+
 ```json
 {
   "_id": "ObjectId",
@@ -151,10 +158,10 @@ Blob-Manager/
 
 ## Environment Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `MONGO_URI` | MongoDB connection string | `mongodb://localhost:27017/` |
-| `JWT_SECRET_KEY` | Secret key for JWT signing | `your-secret-key-here` |
+| Variable           | Description                | Example                        |
+| ------------------ | -------------------------- | ------------------------------ |
+| `MONGO_URI`      | MongoDB connection string  | `mongodb://localhost:27017/` |
+| `JWT_SECRET_KEY` | Secret key for JWT signing | `your-secret-key-here`       |
 
 ## Technologies Used
 
