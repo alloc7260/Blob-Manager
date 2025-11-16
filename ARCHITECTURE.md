@@ -119,7 +119,6 @@ Blob-Manager/
 ├── requirements.txt          # Python dependencies
 │
 ├── .env                      # Environment variables (create this)
-├── .env.example             # Template for .env
 │
 ├── utils/
 │   ├── __init__.py
